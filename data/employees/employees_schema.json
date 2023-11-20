@@ -1,0 +1,10 @@
+{
+    "columns": {
+        "id":"str",
+        "firstname": "str",
+        "lastname": "str",
+        "department": "str",
+        "salary": "int"
+    },
+    "primary_key": "name"
+}

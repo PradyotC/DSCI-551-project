@@ -1,0 +1,9 @@
+{
+    "columns":{
+        "employeeId":"str",
+        "providerId":"str",
+        "vacationDays":"int",
+        "status":"bool"
+    },
+    "primary_key":"employeeId"
+}
