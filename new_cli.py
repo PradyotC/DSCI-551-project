@@ -38,7 +38,14 @@ def parse_where_clause(where_clause):
     return parsed_conditions, operator
 
 def parse_conditions(where_clause):
-    match = re.match(r'(.*?)\s*([=<>!]{1,2})\s*(.*)', where_clause)
+    "(department==HR AND salary>60000) AND (id==146 OR id==102) ORDER_BY salary DESC"
+    '''split ORDER_BY if exists'''
+    if 'ORDER_BY' in where_clause:
+        where_clause, order_by = where_clause.split('ORDER_BY')
+        order_by = order_by.split()
+    else:
+        order_by = None
+    # match = re.match(r'(.*?)\s*([=<>!]{1,2})\s*(.*)', where_clause)
     tokens = re.split(r'(\(|\)|AND|OR|==|>|<|!=|<=|>=)', where_clause)
     tokens = [token.strip() for token in tokens if token.strip()]
 
@@ -54,7 +61,7 @@ def parse_conditions(where_clause):
             tks.pop()
         else:
             tks_stack.append(token)
-    return tks_stack[::-1]
+    return None if not tks_stack else tks_stack[::-1], order_by
 
     
 
@@ -116,7 +123,7 @@ class SimpleDBCLI(cmd.Cmd):
             print(f"Error deleting from table: {e}")
 
 
-    def do_select(self, arg):
+    def do_get(self, arg):
         'Select entries from a table: SELECT TABLE_NAME PRIMARY_KEY=PRIMARY_KEY_VALUE or SELECT TABLE_NAME COLUMN1 COLUMN2 ...'
         args = arg.split()
         if len(args) < 1:
@@ -141,9 +148,9 @@ class SimpleDBCLI(cmd.Cmd):
             columns = args[1:where_index]
             if not columns:
                 columns = None
-            conditions = parse_conditions(" ".join(args[where_index + 1:]))
+            conditions,order_by = parse_conditions(" ".join(args[where_index + 1:]))
             try:
-                keys,entries = self.db.execute_query(table_name, columns, conditions)
+                keys,entries = self.db.execute_query(table_name, columns, conditions, order_by)
                 print_data(keys,entries)
             except Exception as e:
                 print(f"Error selecting from table: {e}")

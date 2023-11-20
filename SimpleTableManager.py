@@ -429,7 +429,6 @@ class SimpleDB:
 
         schema_path = os.path.join(self.datapath, table_name, f"{table_name}_schema.json")
         schema = self._load_json_file(schema_path)
-
         if column_list is None:
             column_list = list(schema["columns"].keys())
 
@@ -452,15 +451,19 @@ class SimpleDB:
                 chunk = dict(zip(schema["columns"].keys(), row))
                 filtered_chunk = [chunk] if self.evaluate_conditions(chunk, conditions) else []
 
-                # Ordering
-                if order_by:
-                    filtered_chunk.sort(key=lambda x: x[order_by])
-
                 # Selecting fields
                 for item in filtered_chunk:
                     # result_item = {field: item.get(field, None) for field in column_list}
                     # result.append(result_item)
                     result.append([item.get(field, None) for field in column_list])
+
+        if order_by:
+            if len(order_by) == 1:
+                order_col, order_dir = order_by[0], 'ASC'
+            else:
+                order_col, order_dir = order_by
+            order_idx = column_list.index(order_col)
+            result.sort(key=lambda x: x[order_idx], reverse=order_dir == 'DESC')
 
         return column_list, result
 

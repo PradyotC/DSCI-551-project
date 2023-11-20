@@ -9,3 +9,4 @@ cli.py
 main.py
 cli_parser.py 
 prompt.txt
+.DS_Store
