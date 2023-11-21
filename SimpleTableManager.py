@@ -50,16 +50,25 @@ class SimpleDB:
         file_path = os.path.join(
             self.datapath, table_name, f"{table_name}_{file_number}.csv"
         )
-
         with open(file_path, "r+") as file:
             reader = csv.reader(file)
             rows = list(reader)
-            rows[self._get_row_position(row_id)] = row_data
+            row_number = self._get_row_position(row_id)
+            if len(rows) <= row_number:
+                rows.extend([[] for _ in range(row_number - len(rows) + 1)])
+            rows[row_number] = row_data
 
             file.seek(0)
             file.truncate()  # Truncate the file to remove old content
             writer = csv.writer(file)
             writer.writerows(rows)
+
+    def _create_csv_file(self, table_name, file_number):
+        file_path = os.path.join(
+            self.datapath, table_name, f"{table_name}_{file_number}.csv"
+        )
+        with open(file_path, "w") as file:
+            pass
 
     def _load_csv_rows(self, table_name, start_row=0, end_row=None):
         start_file = self._get_file_number(start_row)
@@ -131,6 +140,9 @@ class SimpleDB:
         metadata = {"auto_id": -1, "deleted_ids": []}
         primary_key_index = {}
 
+        # Create the first CSV file
+        self._create_csv_file(name, 0)
+
         self._save_json_file(os.path.join(table_path, f"{name}_schema.json"), schema)
         self._save_json_file(
             os.path.join(table_path, f"{name}_metadata.json"), metadata
@@ -139,6 +151,7 @@ class SimpleDB:
             os.path.join(table_path, f"{name}_primary_key_index.json"),
             primary_key_index,
         )
+    
 
     def _allocate_row_id(self, table_name):
         metadata_path = os.path.join(
@@ -175,13 +188,9 @@ class SimpleDB:
         # Prepare row data first
         row_data = self._prepare_row_data(table_name, values)
 
-        primary_key_column = self._load_json_file(
-            os.path.join(self.datapath, table_name, f"{table_name}_schema.json")
-        )["primary_key"]
+        primary_key_column = self._load_json_file(os.path.join(self.datapath, table_name, f"{table_name}_schema.json"))["primary_key"]
         primary_key_value = values[primary_key_column]
-        primary_key_index_path = os.path.join(
-            self.datapath, table_name, f"{table_name}_primary_key_index.json"
-        )
+        primary_key_index_path = os.path.join(self.datapath, table_name, f"{table_name}_primary_key_index.json")
         primary_key_index = self._load_json_file(primary_key_index_path)
 
         # Check for duplicate primary key before allocating new ID
@@ -190,25 +199,37 @@ class SimpleDB:
 
         # Allocate row ID and check if it's reused or new
         row_id, is_new_id = self._allocate_row_id(table_name)
+        increment_row_id = True and is_new_id
 
-        # Write data to the CSV file
-        self._update_csv_file(table_name, row_id, row_data)
+        try:
+            # Write data to the CSV file
+            self._update_csv_file(table_name, row_id, row_data)
 
-        if not is_new_id:
-            # Update the metadata file if an ID from deleted_ids was used
-            metadata_path = os.path.join(
-                self.datapath, table_name, f"{table_name}_metadata.json"
-            )
-            metadata = self._load_json_file(metadata_path)
-            # Ensure the used ID is removed from deleted_ids
-            metadata["deleted_ids"] = [
-                id for id in metadata["deleted_ids"] if id != row_id
-            ]
-            self._save_json_file(metadata_path, metadata)
+            if not is_new_id:
+                # Update the metadata file if an ID from deleted_ids was used
+                metadata_path = os.path.join(
+                    self.datapath, table_name, f"{table_name}_metadata.json"
+                )
+                metadata = self._load_json_file(metadata_path)
+                # Ensure the used ID is removed from deleted_ids
+                metadata["deleted_ids"] = [
+                    id for id in metadata["deleted_ids"] if id != row_id
+                ]
+                self._save_json_file(metadata_path, metadata)
 
-        # Update the primary key index
-        primary_key_index[primary_key_value] = row_id
-        self._save_json_file(primary_key_index_path, primary_key_index)
+            # Update the primary key index
+            primary_key_index[primary_key_value] = row_id
+            self._save_json_file(primary_key_index_path, primary_key_index)
+        except Exception:
+            if increment_row_id:
+                # Decrement the auto_id if the ID was newly allocated
+                metadata_path = os.path.join(
+                    self.datapath, table_name, f"{table_name}_metadata.json"
+                )
+                metadata = self._load_json_file(metadata_path)
+                metadata["auto_id"] -= 1
+                self._save_json_file(metadata_path, metadata)
+
 
     def update(self, table_name, column_name, column_value, values: Dict[str, str]):
         if not self.check_table_exists(table_name):
@@ -451,21 +472,23 @@ class SimpleDB:
                 chunk = dict(zip(schema["columns"].keys(), row))
                 filtered_chunk = [chunk] if self.evaluate_conditions(chunk, conditions) else []
 
-                # Selecting fields
-                for item in filtered_chunk:
-                    # result_item = {field: item.get(field, None) for field in column_list}
-                    # result.append(result_item)
-                    result.append([item.get(field, None) for field in column_list])
+                result.extend(filtered_chunk)
 
         if order_by:
             if len(order_by) == 1:
                 order_col, order_dir = order_by[0], 'ASC'
             else:
                 order_col, order_dir = order_by
-            order_idx = column_list.index(order_col)
-            result.sort(key=lambda x: x[order_idx], reverse=order_dir == 'DESC')
+            result.sort(key=lambda x: x[order_col], reverse=order_dir == 'DESC')
 
-        return column_list, result
+        ret = []
+        # Selecting fields
+        for item in result:
+            # result_item = {field: item.get(field, None) for field in column_list}
+            # result.append(result_item)
+            ret.append([item.get(field, None) for field in column_list])
+
+        return column_list, ret
 
 
 # Example of usage

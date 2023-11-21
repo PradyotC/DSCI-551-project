@@ -1,0 +1,8 @@
+{
+    "columns": {
+        "name": "str",
+        "price": "float",
+        "quantity": "int"
+    },
+    "primary_key": "name"
+}

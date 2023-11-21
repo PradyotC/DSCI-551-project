@@ -38,8 +38,6 @@ def parse_where_clause(where_clause):
     return parsed_conditions, operator
 
 def parse_conditions(where_clause):
-    "(department==HR AND salary>60000) AND (id==146 OR id==102) ORDER_BY salary DESC"
-    '''split ORDER_BY if exists'''
     if 'ORDER_BY' in where_clause:
         where_clause, order_by = where_clause.split('ORDER_BY')
         order_by = order_by.split()
@@ -69,6 +67,15 @@ class SimpleDBCLI(cmd.Cmd):
     intro = 'Welcome to the SimpleDB shell. Type help or ? to list commands.\n'
     prompt = 'myDB> '
 
+    aggregate_functions = {
+        "SUM": 4,
+        "AVG": 4,
+        "COUNT": 6,
+        "MIN": 4,
+        "MAX": 4
+    }
+
+
     def __init__(self):
         super().__init__()
         self.db = SimpleDB()
@@ -81,7 +88,7 @@ class SimpleDBCLI(cmd.Cmd):
             return
         table_name = args[0]
         primary_key = args[-1]
-        columns = {args[i]: args[i + 1] for i in range(1, len(args) - 1, 2)}
+        columns = {args[i]: args[i + 1] for i in range(1, len(args) - 2, 2)}
         try:
             self.db.create_table(table_name, columns, primary_key)
             print(f"Table {table_name} created successfully.")
@@ -95,7 +102,6 @@ class SimpleDBCLI(cmd.Cmd):
             print("Invalid syntax. Correct syntax: INSERT TABLE_NAME COLUMN1_VALUE COLUMN2_VALUE ...")
             return
         table_name = args[0]
-        print(args[1:])
         columns = self.db._load_json_file(f"data/{table_name}/{table_name}_schema.json")["columns"]
         if len(args[1:]) != len(columns):
             print(f"Expected {len(columns)} values, got {len(args[1:])}.")
@@ -160,7 +166,46 @@ class SimpleDBCLI(cmd.Cmd):
             #     print_data(keys,entries)
             # except Exception as e:
             #     print(f"Error selecting from table: {e}")
-    
+
+    def do_select(self, arg):
+        if "from" in arg:
+            columns,table_name = arg.split("from")
+        elif "FROM" in arg:
+            columns,table_name = arg.split("FROM")
+        aggregate = {}
+        if columns:
+            columns = columns.split()
+            columns = [column.strip() for column in columns if column.strip()]
+            for column in columns:
+                for function, offset in self.aggregate_functions.items():
+                    if column.startswith(function):
+                        col_name = column[offset:-1]
+                        aggregate[col_name] = function
+                        columns.remove(column)
+                        columns.append(col_name)
+                        break
+        else:
+            columns = None
+        if "where" in table_name:
+            table_name,where_clause = table_name.split("where")
+            where_clause = where_clause.strip()
+        elif "WHERE" in table_name:
+            table_name,where_clause = table_name.split("WHERE")
+            where_clause = where_clause.strip()
+        else:
+            table_name = table_name
+        table_name = table_name.strip()
+        conditions,order_by = parse_conditions(where_clause)
+        try:
+            print(table_name,columns,conditions,order_by)
+            keys,entries = self.db.execute_query(table_name, columns, conditions, order_by)
+            print_data(keys,entries)
+        except Exception as e:
+            print(f"Error selecting from table: {e}")
+
+
+
+
 
     def do_quit(self, arg):
         'Exit the SimpleDB shell.'
