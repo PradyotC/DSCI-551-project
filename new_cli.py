@@ -167,44 +167,66 @@ class SimpleDBCLI(cmd.Cmd):
             # except Exception as e:
             #     print(f"Error selecting from table: {e}")
 
+        # aggregate = {}
+        # if columns:
+        #     columns = columns.split()
+        #     columns = [column.strip() for column in columns if column.strip()]
+        #     for column in columns:
+        #         for function, offset in self.aggregate_functions.items():
+        #             if column.startswith(function):
+        #                 col_name = column[offset:-1]
+        #                 aggregate[col_name] = function
+        #                 columns.remove(column)
+        #                 columns.append(col_name)
+        #                 break
+    
+
     def do_select(self, arg):
-        if "from" in arg:
-            columns,table_name = arg.split("from")
-        elif "FROM" in arg:
-            columns,table_name = arg.split("FROM")
-        aggregate = {}
+        'Select entries from a table: SELECT TABLE_NAME PRIMARY_KEY=PRIMARY_KEY_VALUE or SELECT TABLE_NAME COLUMN1 COLUMN2 ...'
+        args = arg.split()
+        table_name, columns, join_table_name, join_condition, conditions, order_by, group_by = None, None, None, None, None, None, None
+        idx = 0
+        while idx < len(args):
+            if args[idx] == 'from':
+                columns = "".join(args[0:idx])
+                table_name = args[idx + 1]
+                break
+            idx += 1
+        if not columns: columns = None
+        if "join" in args:
+            idx = args.index("join")
+            while idx < len(args):
+                if args[idx] == 'join':
+                    join_table_name = args[idx + 1]
+                    join_condition = args[idx + 3]
+                    break
+                idx += 1
+        last_idx = len(args)
+        if "group_by" in args:
+            idx = args.index("group_by")
+            last_idx = min(idx, last_idx)
+            group_by = args[idx + 1]
+        if "order_by" in args:
+            idx = args.index("order_by")
+            last_idx = min(idx, last_idx)
+            order_by = [args[idx + 1], args[idx + 2]]
+        if "where" in args:
+            idx = args.index("where")
+            conditions = " ".join(args[idx + 1:last_idx])
         if columns:
-            columns = columns.split()
+            columns = columns.split(",")
             columns = [column.strip() for column in columns if column.strip()]
-            for column in columns:
-                for function, offset in self.aggregate_functions.items():
-                    if column.startswith(function):
-                        col_name = column[offset:-1]
-                        aggregate[col_name] = function
-                        columns.remove(column)
-                        columns.append(col_name)
-                        break
+        if conditions:
+            conditions,_ = parse_conditions(conditions)
+        if group_by and columns:
+            aggregate_info = columns[1].split('(')  # Splitting to get aggregate function and column
+            aggregate_func = aggregate_info[0].upper()  # Getting the aggregate function (SUM, MAX, MIN, COUNT)
+            aggregate_col = aggregate_info[1][:-1] if aggregate_func != "COUNT" else None  # Getting the column for aggregation
+            self.db.perform_group_by(table_name, columns[0], aggregate_func, aggregate_col)
+
         else:
-            columns = None
-        if "where" in table_name:
-            table_name,where_clause = table_name.split("where")
-            where_clause = where_clause.strip()
-        elif "WHERE" in table_name:
-            table_name,where_clause = table_name.split("WHERE")
-            where_clause = where_clause.strip()
-        else:
-            table_name = table_name
-        table_name = table_name.strip()
-        conditions,order_by = parse_conditions(where_clause)
-        try:
-            print(table_name,columns,conditions,order_by)
-            keys,entries = self.db.execute_query(table_name, columns, conditions, order_by)
+            keys,entries = self.db.execute_join_query(table_name, columns, conditions, order_by, join_table_name, join_condition)
             print_data(keys,entries)
-        except Exception as e:
-            print(f"Error selecting from table: {e}")
-
-
-
 
 
     def do_quit(self, arg):
