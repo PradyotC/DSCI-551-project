@@ -1,7 +1,0 @@
-{
-    "columns": {
-        "providerId": "str",
-        "providerName": "str"
-    },
-    "primary_key": "providerId"
-}

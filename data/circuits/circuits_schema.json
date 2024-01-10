@@ -1,0 +1,11 @@
+{
+    "columns": {
+        "row_id": "str",
+        "circuitId": "int",
+        "circuitRef": "str",
+        "name": "str",
+        "location": "str",
+        "country": "str"
+    },
+    "primary_key": "row_id"
+}

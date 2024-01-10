@@ -1,0 +1,13 @@
+{
+    "columns": {
+        "row_id": "str",
+        "driverStandingsId": "int",
+        "raceId": "int",
+        "driverId": "int",
+        "points": "float",
+        "position": "int",
+        "positionText": "str",
+        "wins": "int"
+    },
+    "primary_key": "row_id"
+}

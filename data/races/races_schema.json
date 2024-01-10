@@ -1,0 +1,11 @@
+{
+    "columns": {
+        "row_id": "str",
+        "raceId": "int",
+        "year": "int",
+        "round": "int",
+        "circuitId": "int",
+        "name": "str"
+    },
+    "primary_key": "row_id"
+}

@@ -1,0 +1,10 @@
+{
+    "columns": {
+        "row_id": "str",
+        "constructorId": "int",
+        "constructorRef": "str",
+        "name": "str",
+        "nationality": "str"
+    },
+    "primary_key": "row_id"
+}

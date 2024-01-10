@@ -1,0 +1,12 @@
+{
+    "columns": {
+        "row_id": "str",
+        "driverId": "int",
+        "driverRef": "str",
+        "code": "str",
+        "forename": "str",
+        "surname": "str",
+        "nationality": "str"
+    },
+    "primary_key": "row_id"
+}
